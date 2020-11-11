@@ -27,21 +27,50 @@ class _HomePageState extends State<HomePage> {
   final _picker = ImagePicker();
   bool _isLoading = false;
 
+  List _result;
+  String _name = '';
+  String _confidence = '';
+
   selectImage() async {
     final pickedImage = await _picker.getImage(source: ImageSource.gallery);
     setState(() {
+      _image = File(pickedImage.path);
       _isLoading = true;
-      if (pickedImage != null) {
-        _image = File(pickedImage.path);
-      } else {
-        print('Something went wrong');
-      }
+    });
+    applyModalOnImage(File(pickedImage.path));
+  }
+
+  loadImage() async {
+    var resultant = await Tflite.loadModel(
+      model: 'assets/model_unquant.tflite',
+      labels: 'assets/labels.txt',
+    );
+    print(resultant.toString());
+  }
+
+  applyModalOnImage(File image) async {
+    var res = await Tflite.runModelOnImage(
+      path: image.path,
+      numResults: 2,
+      threshold: 0.5,
+      imageMean: 127.5,
+      imageStd: 127.5,
+    );
+    setState(() {
+      _result = res;
+
+      String str = _result[0]['label'];
+      _name = str.substring(2);
+      _confidence = _result != null
+          ? (_result[0]['confidence'] * 100).toString().substring(0, 2) + '%'
+          : '';
     });
   }
 
   @override
   void initState() {
     super.initState();
+    loadImage();
   }
 
   @override
@@ -65,7 +94,13 @@ class _HomePageState extends State<HomePage> {
                   width: double.infinity,
                   child: Image.file(_image),
                 )
-              : Center(child: Text('No Image Found!')),
+              : Center(
+                  child: Text('No Image Found!'),
+                ),
+          SizedBox(height: 100.0),
+          Text('Name : $_name'),
+          SizedBox(height: 20.0),
+          Text('Confidence : $_confidence')
         ],
       ),
     );
